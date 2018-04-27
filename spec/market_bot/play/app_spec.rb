@@ -51,25 +51,25 @@ describe MarketBot::Play::App do
         match(/\A[\w+\-.]+@[a-z\d\-]+(\.[a-z]+)*\.[a-z]+\z/i)
     end
 
-    it 'should parse the full_screenshot_urls attribute' do
-      @parsed[:full_screenshot_urls].each do |url|
-        expect(url).to match(/\Ahttps:\/\//)
-      end
-    end
-
     it 'should parse the html attribute' do
       expect(@parsed[:html]).to eq(@html)
     end
 
     it 'should parse the installs attribute' do
-      expect(@parsed[:installs]).to match(/\A\d+,*.* - .*,*\d+\z/)
+      expect(@parsed[:installs]).to match(/\A\d+,*.*\+\z/)
     end
 
     it 'should parse the more_from_developer attribute' do
-      @parsed[:more_from_developer].each do |v|
-        expect(v).to be_kind_of(Hash)
-        expect(v).to have_key(:package)
-        expect(v[:package]).to match(/[a-zA-Z0-9]+/)
+      expect(@parsed[:more_from_developer]).to eq(nil).or be_kind_of(Array)
+    end
+
+    it 'should parse the more_from_developer attribute' do
+      if @parsed[:more_from_developer]
+        @parsed[:more_from_developer].each do |v|
+          expect(v).to be_kind_of(Hash)
+          expect(v).to have_key(:package)
+          expect(v[:package]).to match(/[a-zA-Z0-9]+/)
+        end
       end
     end
 
@@ -78,15 +78,7 @@ describe MarketBot::Play::App do
     end
 
     it 'should parse the rating attribute' do
-      expect(@parsed[:rating]).to be_kind_of(String).and match(/\A\d\.\d\z/)
-    end
-
-    it 'should parse the rating_distribution attribute' do
-      expect(@parsed[:rating_distribution].length).to eq(5)
-      expect(@parsed[:rating_distribution].keys).to \
-        all(be_kind_of(expected_number_class)).and contain_exactly(1, 2, 3, 4, 5)
-      expect(@parsed[:rating_distribution].values).to \
-        all(be_kind_of(expected_number_class)).and all(be_kind_of(expected_number_class)).and all(be >= 0)
+      expect(@parsed[:rating]).to be_kind_of(String).and match(/\A\d\.\d.+\z/)
     end
 
     it 'should parse the requires_android attribute' do
@@ -94,27 +86,27 @@ describe MarketBot::Play::App do
         be_kind_of(String).and match(/\A\d(\.\d)* and up\z/)
     end
 
-    it 'should parse the reviews attribute' do
-      expect(@parsed[:reviews].length).to be > 0
-      expect(@parsed[:reviews]).to \
-        be_kind_of(Array).and all(be_kind_of(Hash)).and \
-        all(have_key(:title)).and all(have_key(:score)).and \
-        all(have_key(:text)).and all(have_key(:review_id))
-    end
-
     it 'should parse the screenshot_urls attribute' do
-      expect(@parsed[:screenshot_urls]).to all(match(/\Ahttps:\/\//))
+      expect(@parsed[:screenshot_urls]).to be_kind_of(Array)
+      expect(@parsed[:screenshot_urls].length).to be >= 0
     end
 
     it 'should parse the similar attribute' do
-      expect(@parsed[:similar].length).to be >= 0
-      expect(@parsed[:similar]).to all(be_kind_of(Hash)).and \
-        all(have_key(:package))
+      expect(@parsed[:similar]).to eq(nil).or be_kind_of(Array)
+    end
+
+    it 'should parse the correct similar attribute' do
+      if @parsed[:similar]
+        expect(@parsed[:similar].length).to be >= 0
+        expect(@parsed[:similar]).to all(be_kind_of(Hash)).and \
+          all(have_key(:package))
+      end
     end
 
     it 'should parse the size attribute' do
       expect(@parsed[:size]).to eq(nil).or(
-        be_kind_of(String).and match(/\A\d+\.?\d*M\z/))
+        be_kind_of(String).and(match(/\A\d+\.?\d*M\z/))
+      )
     end
 
     it 'should parse the title attribute' do
@@ -138,8 +130,10 @@ describe MarketBot::Play::App do
     end
 
     it 'should parse the privacy_url attribute' do
+      if @parsed[:privacy_url]
         expect(@parsed[:privacy_url]).to match(/\Ahttps?:\/\//).and \
-          be_kind_of(String) if @parsed[:privacy_url]
+          be_kind_of(String)
+      end
     end
 
     it 'should parse the whats_new attribute' do
@@ -154,12 +148,14 @@ describe MarketBot::Play::App do
 
     it 'should parse the in_app_products_price attribute' do
       expect(@parsed[:in_app_products_price]).to eq(nil).or(
-        be_kind_of(String).and match(/(.+(\d|.){1,}\ )\-(.+(\d|.){1,})\ per\ item/))
+        be_kind_of(String).and(match(/(.+(\d|.){1,}\ )\-(.+(\d|.){1,})\ per\ item/))
+      )
     end
 
     it 'should parse the physical_address attribute' do
       expect(@parsed[:physical_address]).to eq(nil).or(
-        be_kind_of(String))
+        be_kind_of(String)
+      )
     end
   end
 
@@ -216,9 +212,9 @@ describe MarketBot::Play::App do
     response = Typhoeus::Response.new(code: code)
     Typhoeus.stub(app.store_url).and_return(response)
 
-    expect {
+    expect do
       app.update
-    }.to raise_error(MarketBot::NotFoundError)
+    end.to raise_error(MarketBot::NotFoundError)
   end
 
   it 'should raise an UnavailableError for http code 403' do
@@ -229,9 +225,9 @@ describe MarketBot::Play::App do
     response = Typhoeus::Response.new(code: code)
     Typhoeus.stub(app.store_url).and_return(response)
 
-    expect {
+    expect do
       app.update
-    }.to raise_error(MarketBot::UnavailableError)
+    end.to raise_error(MarketBot::UnavailableError)
   end
 
   it 'should raise a ResponseError for unknown http codes' do
@@ -242,8 +238,8 @@ describe MarketBot::Play::App do
     response = Typhoeus::Response.new(code: code)
     Typhoeus.stub(app.store_url).and_return(response)
 
-    expect {
+    expect do
       app.update
-    }.to raise_error(MarketBot::ResponseError)
+    end.to raise_error(MarketBot::ResponseError)
   end
 end

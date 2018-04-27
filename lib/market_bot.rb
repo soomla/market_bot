@@ -1,4 +1,5 @@
 require 'uri'
+require 'cgi'
 
 require 'typhoeus'
 require 'nokogiri'
@@ -32,11 +33,10 @@ module MarketBot
 
   def self.user_agent
     @user_agent ||= "MarketBot/#{MarketBot::VERSION} / " \
-      "(+https://github.com/chadrem/market_bot)"
+      '(+https://github.com/chadrem/market_bot)'
   end
 
   def self.user_agent=(val)
     @user_agent = val
   end
 end
-
