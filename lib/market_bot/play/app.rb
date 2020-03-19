@@ -118,7 +118,12 @@ module MarketBot
           end.compact.uniq
         end
 
-        h2_more = doc.at_css("h2:contains(\"#{result[:developer]}\")")
+        if result[:developer].include? "'"              # Add the wrapper to avoid quote's parsing issues
+          css_selector = "h2:contains(\"#{result[:developer]}\")"
+        else
+          css_selector = "h2:contains(\'#{result[:developer]}\')"
+        end
+        h2_more = doc.at_css(css_selector)
         if h2_more
           more_divs                    = h2_more.parent.next ? h2_more.parent.next.children : h2_more.parent.parent.next.children
           result[:more_from_developer] = more_divs.search('a').select do |a|
