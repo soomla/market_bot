@@ -119,9 +119,11 @@ module MarketBot
         end
 
         if result[:developer].include? "'"              # Add the wrapper to avoid quote's parsing issues
-          css_selector = "h2:contains(\"#{result[:developer]}\")"
+          normalized_result = result[:developer].gsub('"', "'")
+          css_selector = "h2:contains(\"#{normalized_result}\")"
         else
-          css_selector = "h2:contains(\'#{result[:developer]}\')"
+          normalized_result = result[:developer].gsub("'", '"')
+          css_selector = "h2:contains(\'#{normalized_result}\')"
         end
         h2_more = doc.at_css(css_selector)
         if h2_more
