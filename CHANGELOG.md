@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.3.2] - 2020-03-22
+### Fixed
+- double and single quotes in developer's name don't break the flow anymore.
+
 ## [1.3.1] - 2018-03-29
 ### Fixed
 - replace obsolete URI.escape with CGI.escape @lightalloy.

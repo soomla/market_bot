@@ -32,18 +32,18 @@ module MarketBot
           if developer_div
             node = developer_div.at('a:contains("Visit website")')
             if node
-              href = node.attr('href')
+              href             = node.attr('href')
               encoding_options = {
-                invalid: :replace,      # Replace invalid byte sequences
-                undef: :replace,        # Replace anything not defined in ASCII
-                replace: '',            # Use a blank for those replacements
+                invalid: :replace, # Replace invalid byte sequences
+                undef: :replace, # Replace anything not defined in ASCII
+                replace: '', # Use a blank for those replacements
                 universal_newline: true # Always break lines with \n
               }
 
-              href = href.encode(Encoding.find('ASCII'), encoding_options)
+              href   = href.encode(Encoding.find('ASCII'), encoding_options)
               href_q = URI(href).query
               if href_q
-                q_param = href_q.split('&').select { |p| p =~ /q=/ }.first
+                q_param = href_q.split('&').select {|p| p =~ /q=/}.first
                 href    = q_param.gsub('q=', '') if q_param
               end
               result[:website_url] = href
@@ -55,16 +55,16 @@ module MarketBot
             if node
               href             = node.attr('href')
               encoding_options = {
-                invalid: :replace,      # Replace invalid byte sequences
-                undef: :replace,        # Replace anything not defined in ASCII
-                replace: '',            # Use a blank for those replacements
+                invalid: :replace, # Replace invalid byte sequences
+                undef: :replace, # Replace anything not defined in ASCII
+                replace: '', # Use a blank for those replacements
                 universal_newline: true # Always break lines with \n
               }
 
               href   = href.encode(Encoding.find('ASCII'), encoding_options)
               href_q = URI(href).query
               if href_q
-                q_param = href_q.split('&').select { |p| p =~ /q=/ }.first
+                q_param = href_q.split('&').select {|p| p =~ /q=/}.first
                 href    = q_param.gsub('q=', '') if q_param
               end
               result[:privacy_url] = href
@@ -75,11 +75,11 @@ module MarketBot
           end
         end
 
-        a_genres              = doc.search('a[itemprop="genre"]')
-        a_genre               = a_genres[0]
+        a_genres = doc.search('a[itemprop="genre"]')
+        a_genre  = a_genres[0]
 
-        result[:categories]      = a_genres.map { |d| d.text.strip }
-        result[:categories_urls] = a_genres.map { |d| File.split(d['href'])[1] }
+        result[:categories]      = a_genres.map {|d| d.text.strip}
+        result[:categories_urls] = a_genres.map {|d| File.split(d['href'])[1]}
 
         result[:category]     = result[:categories].first
         result[:category_url] = result[:categories_urls].first
@@ -100,9 +100,12 @@ module MarketBot
 
         if doc.at_css('meta[itemprop="ratingValue"]')
           node            = doc.at_css('meta[itemprop="ratingValue"]')
-          result[:rating] = node[:content].strip if node
-          node            = doc.at_css('meta[itemprop="reviewCount"]')
-          result[:votes]  = node[:content].strip.to_i if node
+          result[:rating] = node[:content].strip
+          node            = doc.at_css('meta[itemprop="ratingCount"]')
+          unless node
+            node = doc.at_css('meta[itemprop="reviewCount"]')
+          end
+          result[:votes] = node[:content].strip.to_i if node
         end
 
         a_similar = doc.at_css('a:contains("Similar")')
@@ -111,17 +114,24 @@ module MarketBot
           result[:similar] = similar_divs.search('a').select do |a|
             a['href'].start_with?('/store/apps/details')
           end.map do |a|
-            { package: a['href'].split('?id=').last.strip }
+            {package: a['href'].split('?id=').last.strip}
           end.compact.uniq
         end
 
-        h2_more = doc.at_css("h2:contains(\"#{result[:developer]}\")")
+        if result[:developer].include? "'"              # Add the wrapper to avoid quote's parsing issues
+          normalized_result = result[:developer].gsub('"', "'")
+          css_selector = "h2:contains(\"#{normalized_result}\")"
+        else
+          normalized_result = result[:developer].gsub("'", '"')
+          css_selector = "h2:contains(\'#{normalized_result}\')"
+        end
+        h2_more = doc.at_css(css_selector)
         if h2_more
-          more_divs                    = h2_more.parent.next.children
+          more_divs                    = h2_more.parent.next ? h2_more.parent.next.children : h2_more.parent.parent.next.children
           result[:more_from_developer] = more_divs.search('a').select do |a|
             a['href'].start_with?('/store/apps/details')
           end.map do |a|
-            { package: a['href'].split('?id=').last.strip }
+            {package: a['href'].split('?id=').last.strip}
           end.compact.uniq
         end
 
@@ -130,16 +140,16 @@ module MarketBot
           result[:cover_image_url] = MarketBot::Util.fix_content_url(node[:src])
         end
 
-        nodes = doc.search('img[alt="Screenshot Image"]', 'img[alt="Screenshot"]')
+        nodes                    = doc.search('img[alt="Screenshot Image"]', 'img[alt="Screenshot"]')
         result[:screenshot_urls] = []
         unless nodes.nil?
           result[:screenshot_urls] = nodes.map do |n|
             MarketBot::Util.fix_content_url(n[:src])
           end
         end
-
         node               = doc.at_css('h2:contains("What\'s New")')
         result[:whats_new] = node.inner_html if node
+
 
         result[:html] = html
 
@@ -179,12 +189,12 @@ module MarketBot
         else
           codes = "code=#{response.code}, return_code=#{response.return_code}"
           case response.code
-          when 404
-            raise MarketBot::NotFoundError, "Unable to find app in store: #{codes}"
-          when 403
-            raise MarketBot::UnavailableError, "Unavailable app (country restriction?): #{codes}"
-          else
-            raise MarketBot::ResponseError, "Unhandled response: #{codes}"
+            when 404
+              raise MarketBot::NotFoundError, "Unable to find app in store: #{codes}"
+            when 403
+              raise MarketBot::UnavailableError, "Unavailable app (country restriction?): #{codes}"
+            else
+              raise MarketBot::ResponseError, "Unhandled response: #{codes}"
           end
         end
       end
