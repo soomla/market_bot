@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.3.3] - 2020-09-01
+### Fixed
+- fix parsing of app rating value.
+
 ## [1.3.2] - 2020-03-22
 ### Fixed
 - double and single quotes in developer's name don't break the flow anymore.

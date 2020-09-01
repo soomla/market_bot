@@ -1,3 +1,5 @@
+require 'json'
+
 module MarketBot
   module Play
     class App
@@ -98,15 +100,7 @@ module MarketBot
         result[:description]  = doc.at_css('div[itemprop="description"]').inner_html.strip if doc.at_css('div[itemprop="description"]')
         result[:title]        = doc.at_css('h1[itemprop="name"]').text
 
-        if doc.at_css('meta[itemprop="ratingValue"]')
-          node            = doc.at_css('meta[itemprop="ratingValue"]')
-          result[:rating] = node[:content].strip
-          node            = doc.at_css('meta[itemprop="ratingCount"]')
-          unless node
-            node = doc.at_css('meta[itemprop="reviewCount"]')
-          end
-          result[:votes] = node[:content].strip.to_i if node
-        end
+        result[:rating] = JSON.parse(doc.at('script:contains("ratingValue")').text.strip)["aggregateRating"]["ratingValue"]
 
         a_similar = doc.at_css('a:contains("Similar")')
         if a_similar
