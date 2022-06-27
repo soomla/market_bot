@@ -3,33 +3,27 @@ require File.expand_path(File.dirname(__FILE__) + '../../../spec_helper')
 describe MarketBot::Play::App do
   shared_context('parsing an app') do
     it 'should parse the category attribute' do
-      expect(@parsed[:category]).to eq('Arcade').or eq('Weather').or eq('Simulation')
+      expect(@parsed[:category]).to eq('Action').or eq(nil).or eq('Simulation')
     end
 
     it 'should parse the category_url attribute' do
-      expect(@parsed[:category_url]).to eq('GAME_ARCADE').or eq('WEATHER').or eq('GAME_SIMULATION')
+      expect(@parsed[:category_url]).to eq('/store/apps/category/GAME_ACTION').or eq(nil).or eq('/store/apps/category/GAME_SIMULATION')
     end
 
     it 'should parse the categories attribute' do
-      expect(@parsed[:categories]).to eq(['Arcade']).or eq(['Weather']).or eq(['Simulation', 'Pretend Play'])
+      expect(@parsed[:categories]).to eq(['Action', 'IO game', 'Casual']).or eq([]).or eq(["Simulation", "Casual"])
     end
 
     it 'should parse the categories_urls attribute' do
-      expect(@parsed[:categories_urls]).to eq(['GAME_ARCADE']).or eq(['WEATHER']).or eq(%w[GAME_SIMULATION FAMILY_PRETEND])
+      expect(@parsed[:categories_urls]).to eq(["/store/apps/category/GAME_ACTION", "/store/search?q=io+games&c=apps", "/store/apps/category/GAME_CASUAL"]).or eq([]).or eq(["/store/apps/category/GAME_SIMULATION", "/store/apps/category/GAME_CASUAL"])
     end
 
     it 'should parse the content_rating attribute' do
-      expect(@parsed[:content_rating]).to eq('Unrated').or eq('Everyone')
+      expect(@parsed[:content_rating]).to eq('PEGI 7').or eq('PEGI 3').or eq('Everyone')
     end
 
     it 'should parse the cover_image_url attribute' do
-      expect(@parsed[:cover_image_url]).to match(/\Ahttps:\/\//)
-    end
-
-    it 'should parse the current_version attribute' do
-      expect(@parsed[:current_version]).to be_kind_of(String)
-      expect(@parsed[:current_version].length).to be > 0
-      expect(@parsed[:current_version]).to match(/\A\d/).and match(/\d\z/)
+      expect(@parsed[:cover_image_url]).to match(/\Ahttps:\/\//).or be nil
     end
 
     it 'should parse the description attribute' do
@@ -56,21 +50,11 @@ describe MarketBot::Play::App do
     end
 
     it 'should parse the installs attribute' do
-      expect(@parsed[:installs]).to match(/\A\d+,*.*\+\z/)
+      expect(@parsed[:installs]).to match(/\d+(\.\d+)?[MK]/)
     end
 
     it 'should parse the more_from_developer attribute' do
       expect(@parsed[:more_from_developer]).to eq(nil).or be_kind_of(Array)
-    end
-
-    it 'should parse the more_from_developer attribute' do
-      if @parsed[:more_from_developer]
-        @parsed[:more_from_developer].each do |v|
-          expect(v).to be_kind_of(Hash)
-          expect(v).to have_key(:package)
-          expect(v[:package]).to match(/[a-zA-Z0-9]+/)
-        end
-      end
     end
 
     it 'should parse the price attribute' do
@@ -78,35 +62,12 @@ describe MarketBot::Play::App do
     end
 
     it 'should parse the rating attribute' do
-      expect(@parsed[:rating]).to be_kind_of(String).and match(/\A\d\.\d.+\z/)
-    end
-
-    it 'should parse the requires_android attribute' do
-      expect(@parsed[:requires_android]).to \
-        be_kind_of(String).and match(/\A\d(\.\d)* and up\z/)
+      expect(@parsed[:rating]).to be_kind_of(String).and match(/\d\.\d+/)
     end
 
     it 'should parse the screenshot_urls attribute' do
       expect(@parsed[:screenshot_urls]).to be_kind_of(Array)
       expect(@parsed[:screenshot_urls].length).to be >= 0
-    end
-
-    it 'should parse the similar attribute' do
-      expect(@parsed[:similar]).to eq(nil).or be_kind_of(Array)
-    end
-
-    it 'should parse the correct similar attribute' do
-      if @parsed[:similar]
-        expect(@parsed[:similar].length).to be >= 0
-        expect(@parsed[:similar]).to all(be_kind_of(Hash)).and \
-          all(have_key(:package))
-      end
-    end
-
-    it 'should parse the size attribute' do
-      expect(@parsed[:size]).to eq(nil).or(
-        be_kind_of(String).and(match(/\A\d+\.?\d*M\z/))
-      )
     end
 
     it 'should parse the title attribute' do
@@ -120,7 +81,8 @@ describe MarketBot::Play::App do
     end
 
     it 'should parse the votes attribute' do
-      expect(@parsed[:votes]).to be_kind_of(expected_number_class).and be >= 0
+      expect(@parsed[:votes]).to be_kind_of(String).and \
+        match(/\d+(\.\d+)?[MK]/)
     end
 
     it 'should parse the website_url attribute' do
@@ -146,12 +108,6 @@ describe MarketBot::Play::App do
         eq(false)
     end
 
-    it 'should parse the in_app_products_price attribute' do
-      expect(@parsed[:in_app_products_price]).to eq(nil).or(
-        be_kind_of(String).and(match(/(.+(\d|.){1,}\ )\-(.+(\d|.){1,})\ per\ item/))
-      )
-    end
-
     it 'should parse the physical_address attribute' do
       expect(@parsed[:physical_address]).to eq(nil).or(
         be_kind_of(String)
@@ -159,12 +115,12 @@ describe MarketBot::Play::App do
     end
   end
 
-  context '(app-com.bluefroggaming.popdat)' do
+  context '(app-io.voodoo.holeio)' do
     include_context 'parsing an app'
 
     before(:all) do
       @package = 'com.bluefroggaming.popdat'
-      @html = read_play_data('app-com.bluefroggaming.popdat.txt')
+      @html = read_play_data('app-io.voodoo.holeio.txt')
       @parsed = MarketBot::Play::App.parse(@html)
     end
   end
@@ -190,8 +146,8 @@ describe MarketBot::Play::App do
   end
 
   it 'should populate the attribute getters' do
-    package = 'app-com.bluefroggaming.popdat'
-    html = read_play_data('app-com.bluefroggaming.popdat.txt')
+    package = 'app-io.voodoo.holeio'
+    html = read_play_data('app-io.voodoo.holeio.txt')
     code = 200
 
     app = MarketBot::Play::App.new(package)

@@ -11,145 +11,82 @@ module MarketBot
 
         doc = Nokogiri::HTML(html)
 
-        h2_additional_info = doc.at('h2:contains("Additional Information")')
-        if h2_additional_info
-          additional_info_parent         = h2_additional_info.parent.next.children.children
-          node                           = additional_info_parent.at('div:contains("Updated")')
-          result[:updated]               = node.children[1].text if node
-          node                           = additional_info_parent.at('div:contains("Size")')
-          result[:size]                  = node.children[1].text if node
-          node                           = additional_info_parent.at('div:contains("Installs")')
-          result[:installs]              = node.children[1].text if node
-          node                           = additional_info_parent.at('div:contains("Current Version")')
-          result[:current_version]       = node.children[1].text if node
-          node                           = additional_info_parent.at('div:contains("Requires Android")')
-          result[:requires_android]      = node.children[1].text if node
-          node                           = additional_info_parent.at('div:contains("In-app Products")')
-          result[:in_app_products_price] = node.children[1].text if node
+        top_cover = doc.css('div.hnnXjf')
+        if top_cover
+          cover_title = top_cover.children[0]
+          result[:contains_ads] = !!cover_title.at('span:contains("Contains ads")')
 
-          developer_div = additional_info_parent.xpath('div[./text()="Developer"]').first.parent
-          developer_div ||= additional_info_parent.at('div:contains("Contact Developer")')
-          if developer_div
-            node = developer_div.at('a:contains("Visit website")')
-            if node
-              href             = node.attr('href')
-              encoding_options = {
-                invalid: :replace, # Replace invalid byte sequences
-                undef: :replace, # Replace anything not defined in ASCII
-                replace: '', # Use a blank for those replacements
-                universal_newline: true # Always break lines with \n
-              }
+          node = cover_title.xpath('//h1[@itemprop="name"]/span')
+          result[:name] = node.text
 
-              href   = href.encode(Encoding.find('ASCII'), encoding_options)
-              href_q = URI(href).query
-              if href_q
-                q_param = href_q.split('&').select {|p| p =~ /q=/}.first
-                href    = q_param.gsub('q=', '') if q_param
-              end
-              result[:website_url] = href
-            end
-
-            result[:email] = developer_div.at('a:contains("@")').text
-
-            node = developer_div.at('a:contains("Privacy Policy")')
-            if node
-              href             = node.attr('href')
-              encoding_options = {
-                invalid: :replace, # Replace invalid byte sequences
-                undef: :replace, # Replace anything not defined in ASCII
-                replace: '', # Use a blank for those replacements
-                universal_newline: true # Always break lines with \n
-              }
-
-              href   = href.encode(Encoding.find('ASCII'), encoding_options)
-              href_q = URI(href).query
-              if href_q
-                q_param = href_q.split('&').select {|p| p =~ /q=/}.first
-                href    = q_param.gsub('q=', '') if q_param
-              end
-              result[:privacy_url] = href
-
-              node                      = node.parent.next
-              result[:physical_address] = node.text if node
-            end
+          node = cover_title.xpath('//a[starts-with(@href, "/store/apps/dev")]').first
+          result[:developer]     = node.children[0].text if node
+          result[:developer_url] = node.attr('href')
+          result[:developer_id]  = result[:developer_url].split('?id=').last.strip
+          
+          cover_metadata = top_cover.children[1]
+          result[:content_rating] = cover_metadata.xpath('//span[@itemprop="contentRating"]').text
+          result[:installs] = cover_metadata.xpath('//div[contains(text(), "Downloads")]/..').children.first.text
+          
+          node = cover_metadata.at_css('div[itemprop="starRating"]')
+          if node
+            result[:rating] = node.children.first.children.first.text
+            node = node.parent.parent.children.last
+            result[:votes] = node.text.split(' ').first
           end
         end
 
-        a_genres = doc.search('a[itemprop="genre"]')
-        a_genre  = a_genres[0]
-
-        result[:categories]      = a_genres.map {|d| d.text.strip}
-        result[:categories_urls] = a_genres.map {|d| File.split(d['href'])[1]}
-
-        result[:category]     = result[:categories].first
-        result[:category_url] = result[:categories_urls].first
-
-        span_dev               = a_genre.parent.previous
-        result[:developer]     = span_dev.children[0].text
-        result[:developer_url] = span_dev.children[0].attr('href')
-        result[:developer_id]  = result[:developer_url].split('?id=').last.strip
-
-        result[:content_rating] = a_genre.parent.parent.next.text
-
-        result[:price]          = doc.at_css('meta[itemprop="price"]')[:content] if doc.at_css('meta[itemprop="price"]')
-
-        result[:contains_ads] = !!doc.at('div:contains("Contains Ads")')
-
-        result[:description]  = doc.at_css('div[itemprop="description"]').inner_html.strip if doc.at_css('div[itemprop="description"]')
-        result[:title]        = doc.at_css('h1[itemprop="name"]').text
-
-        if doc.at_css('meta[itemprop="ratingValue"]')
-          node            = doc.at_css('meta[itemprop="ratingValue"]')
-          result[:rating] = node[:content].strip
-          node            = doc.at_css('meta[itemprop="ratingCount"]')
-          unless node
-            node = doc.at_css('meta[itemprop="reviewCount"]')
-          end
-          result[:votes] = node[:content].strip.to_i if node
-        end
-
-        a_similar = doc.at_css('a:contains("Similar")')
-        if a_similar
-          similar_divs     = a_similar.parent.parent.parent.next.children
-          result[:similar] = similar_divs.search('a').select do |a|
-            a['href'].start_with?('/store/apps/details')
-          end.map do |a|
-            {package: a['href'].split('?id=').last.strip}
-          end.compact.uniq
-        end
-
-        if result[:developer].include? "'"              # Add the wrapper to avoid quote's parsing issues
-          normalized_result = result[:developer].gsub('"', "'")
-          css_selector = "h2:contains(\"#{normalized_result}\")"
+        poster_url = doc.at('video').attr('poster') if doc.at('video')
+        if(poster_url)
+          result[:cover_image_url] = MarketBot::Util.fix_content_url(poster_url) 
         else
-          normalized_result = result[:developer].gsub("'", '"')
-          css_selector = "h2:contains(\'#{normalized_result}\')"
-        end
-        h2_more = doc.at_css(css_selector)
-        if h2_more
-          more_divs                    = h2_more.parent.next ? h2_more.parent.next.children : h2_more.parent.parent.next.children
-          result[:more_from_developer] = more_divs.search('a').select do |a|
-            a['href'].start_with?('/store/apps/details')
-          end.map do |a|
-            {package: a['href'].split('?id=').last.strip}
-          end.compact.uniq
+          node = doc.at('img[class="oiEt0d"]')
+          result[:cover_image_url] = node.attr('src') if node
         end
 
-        node = doc.at_css('img[alt="Cover art"]')
-        unless node.nil?
-          result[:cover_image_url] = MarketBot::Util.fix_content_url(node[:src])
-        end
+        result[:title] = doc.at_css('h1[itemprop="name"]').text
 
-        nodes                    = doc.search('img[alt="Screenshot Image"]', 'img[alt="Screenshot"]')
+        node = doc.at_css('meta[itemprop="price"]')
+        result[:price]  = node.attr('content') if node
+
+        nodes = doc.search('img[alt="Screenshot image"]')
         result[:screenshot_urls] = []
         unless nodes.nil?
           result[:screenshot_urls] = nodes.map do |n|
             MarketBot::Util.fix_content_url(n[:src])
           end
         end
-        node               = doc.at_css('h2:contains("What\'s New")')
-        result[:whats_new] = node.inner_html if node
 
+        node = doc.xpath('//h2[contains(text(), "What\'s new")]/ancestor::section')
+        result[:whats_new] = node.children.last.text if node
+
+        node = doc.at_css('meta[itemprop="description"]')
+        result[:description]  = node.parent.children[1].text.strip if node
+
+        a_genres = doc.search('div[itemprop="genre"]')
+        result[:categories] = a_genres.map {|c| c.xpath('span').text.strip}
+        result[:categories_urls] = a_genres.map {|c| c.xpath('a').attr('href').value}
+
+        result[:category]     = result[:categories].first
+        result[:category_url] = result[:categories_urls].first
+
+        node = doc.xpath('//div[contains(text(), "Updated on")]/..')
+        result[:updated] = node.children.last.text if node
+
+        developer_div = doc.at_css('[id="developer-contacts"]')
+        if developer_div
+          node = developer_div.at('a:contains("@")')
+          result[:email] = node.attr('href').split(':').last if node
+          
+          node = developer_div.xpath('//div[contains(text(), "Website")]/..')
+          result[:website_url] = MarketBot::Util.sanitize_developer_url(node.children.last.text) if node
+
+          node = developer_div.xpath('//div[contains(text(), "Privacy policy")]/..')
+          result[:privacy_url] = MarketBot::Util.sanitize_developer_url(node.children.last.text) if node
+
+          node = developer_div.xpath('//div[contains(text(), "Address")]/..')
+          result[:physical_address] = node.children.last.text if node
+        end
 
         result[:html] = html
 
