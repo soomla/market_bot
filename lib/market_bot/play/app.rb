@@ -36,13 +36,18 @@ module MarketBot
           end
         end
 
-        poster_url = doc.at('video').attr('poster') if doc.at('video')
-        if(poster_url)
-          result[:cover_image_url] = MarketBot::Util.fix_content_url(poster_url) 
-        else
+        image_url = doc.at('video').attr('poster') if doc.at('video')
+        if(!image_url)
           node = doc.at('img[class="oiEt0d"]')
-          result[:cover_image_url] = node.attr('src') if node
+          if(node)
+            image_url = node.attr('src')
+          else
+            node = top_cover.xpath('//img[@alt="Icon image" and @itemprop="image"]')
+            image_url = node && node.length > 0 ? node.first.attr('src') : ''
+          end
         end
+
+        result[:cover_image_url] = MarketBot::Util.fix_content_url(image_url) 
 
         result[:title] = doc.at_css('h1[itemprop="name"]').text
 
@@ -58,7 +63,7 @@ module MarketBot
         end
 
         node = doc.xpath('//h2[contains(text(), "What\'s new")]/ancestor::section')
-        result[:whats_new] = node.children.last.text if node
+        result[:whats_new] = node.children.last.text if node && node.length > 0
 
         node = doc.at_css('meta[itemprop="description"]')
         result[:description]  = node.parent.children[1].text.strip if node
@@ -71,7 +76,7 @@ module MarketBot
         result[:category_url] = result[:categories_urls].first
 
         node = doc.xpath('//div[contains(text(), "Updated on")]/..')
-        result[:updated] = node.children.last.text if node
+        result[:updated] = node.children.last.text if node && node.length > 0
 
         developer_div = doc.at_css('[id="developer-contacts"]')
         if developer_div
@@ -79,13 +84,13 @@ module MarketBot
           result[:email] = node.attr('href').split(':').last if node
           
           node = developer_div.xpath('//div[contains(text(), "Website")]/..')
-          result[:website_url] = MarketBot::Util.sanitize_developer_url(node.children.last.text) if node
+          result[:website_url] = MarketBot::Util.sanitize_developer_url(node.children.last.text) if node && node.length > 0
 
           node = developer_div.xpath('//div[contains(text(), "Privacy policy")]/..')
-          result[:privacy_url] = MarketBot::Util.sanitize_developer_url(node.children.last.text) if node
+          result[:privacy_url] = MarketBot::Util.sanitize_developer_url(node.children.last.text) if node && node.length > 0
 
           node = developer_div.xpath('//div[contains(text(), "Address")]/..')
-          result[:physical_address] = node.children.last.text if node
+          result[:physical_address] = node.children.last.text if node && node.length > 0
         end
 
         result[:html] = html
