@@ -36,15 +36,16 @@ module MarketBot
           end
         end
 
-        image_url = doc.at('video').attr('poster') if doc.at('video')
+        node = top_cover.xpath('//img[@alt="Icon image" and @itemprop="image"]')
+        image_url = node && node.length > 0 ? node.first.attr('src') : ''
         if(!image_url)
-          node = doc.at('img[class="oiEt0d"]')
-          if(node)
-            image_url = node.attr('src')
-          else
-            node = top_cover.xpath('//img[@alt="Icon image" and @itemprop="image"]')
-            image_url = node && node.length > 0 ? node.first.attr('src') : ''
-          end
+          image_url = doc.at('video').attr('poster') if doc.at('video')
+          if(!image_url)
+            node = doc.at('img[class="oiEt0d"]')
+            if(node)
+              image_url = node.attr('src')  
+            end
+          end          
         end
 
         result[:cover_image_url] = MarketBot::Util.fix_content_url(image_url) 
